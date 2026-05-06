@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: NeoBankX
+    orgId: 1
+    folder: NeoBankX
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+
