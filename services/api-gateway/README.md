@@ -10,3 +10,9 @@ Initial implementation will use Spring Cloud Gateway with:
 - Prometheus metrics and structured access logs.
 - OpenAPI aggregation for customer-facing APIs.
 
+Implemented foundation:
+
+- Routes `/api/v1/auth/**` to `auth-service`.
+- Permits public register, login, and refresh paths while requiring JWTs for other routes.
+- Propagates `X-Correlation-Id` and authenticated identity headers.
+- Uses Redis-backed rate limiting and circuit-breaker fallback.

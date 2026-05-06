@@ -21,10 +21,10 @@ dependencies {
     api("org.springframework.boot:spring-boot-actuator")
     api("io.micrometer:micrometer-core")
     api("jakarta.validation:jakarta.validation-api")
+    api("jakarta.servlet:jakarta.servlet-api")
 
     implementation("org.slf4j:slf4j-api")
 
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core")
 }
-

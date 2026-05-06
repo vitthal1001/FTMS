@@ -1,0 +1,25 @@
+package com.neobankx.auth.infrastructure.security;
+
+import com.neobankx.auth.config.AuthProperties;
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+
+@Configuration
+public class JwtEncoderConfig {
+    @Bean
+    JwtEncoder jwtEncoder(AuthProperties properties) {
+        SecretKey key = new SecretKeySpec(
+                properties.jwt().secret().getBytes(StandardCharsets.UTF_8),
+                "HmacSHA256"
+        );
+        return new NimbusJwtEncoder(new ImmutableSecret<>(key));
+    }
+}
+

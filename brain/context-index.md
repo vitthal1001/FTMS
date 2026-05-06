@@ -29,6 +29,11 @@ Foundation completed:
 - Shared Spring library `services/shared/spring-common` created with API exception, JWT principal contract, correlation ID filter, security headers filter, centralized exception handler, and unit tests.
 - Frontend bootstrap created under `frontend` with React, TypeScript, Tailwind, Redux Toolkit, runtime config, and initial operations console shell.
 
+Implemented services:
+
+- `api-gateway`: Spring Cloud Gateway WebFlux service with auth routing, Redis rate limiting, JWT validation, correlation ID propagation, request logging, circuit-breaker fallback, actuator, Prometheus metrics, OpenAPI docs, Dockerfile, and Kubernetes base manifest.
+- `auth-service`: Spring MVC/JPA service with registration, login, refresh-token rotation, logout, `/me`, BCrypt password hashing, PostgreSQL persistence, Redis token-family session markers, Kafka auth events, account lockout, validation, centralized exception handling, actuator, Prometheus metrics, OpenAPI docs, Dockerfile, Flyway migration, and Kubernetes base manifest.
+
 ## Current Sprint
 
 Phase 1: repository foundation and production engineering structure.
@@ -50,28 +55,26 @@ Completed in this sprint:
 ## Pending Tasks
 
 - Add Gradle wrapper after confirming local Gradle availability or approved dependency bootstrap.
-- Implement API gateway with Spring Cloud Gateway, Redis rate limiting, actuator, OpenAPI aggregation, Dockerfile, tests, and Kubernetes chart.
-- Implement auth-service JWT login, refresh token rotation, RBAC claims, audit events, persistence, Dockerfile, tests, and OpenAPI.
-- Define initial API contracts for auth and user services.
-- Define Kafka topic naming, partitioning, retention, schema ownership, and DLQ standards.
+- Implement Helm charts for `api-gateway` and `auth-service`.
+- Define initial user-service API contracts.
+- Define platform-wide Kafka schema registry and DLQ standards.
 - Add CI pipeline once build commands are verified locally.
-- Add service Helm chart templates only when real service ports, probes, and config contracts exist.
+- Add transactional outbox for auth event delivery hardening.
 
 ## Known Issues
 
-- No application service is deployable yet; phase 1 intentionally avoids fake service containers.
 - Gradle wrapper is not present yet.
 - Frontend dependencies are declared but not installed.
 - Frontend lockfile generation was attempted but npm registry resolution hung without output and was stopped.
-- Local `gradle` CLI is not installed, so backend tests were not executed in this session.
-- Local `terraform` CLI is not installed, so Terraform formatting was not executed in this session.
 - Docker Compose images have not been pulled or started in this session.
+- `auth-service` Kafka publishing is asynchronous and logs publish failures; transactional outbox is pending.
+- Kubernetes YAML syntax validates, but `kubectl apply --dry-run=client` could not complete because no Kubernetes API server is reachable at the current context.
 
 ## Deployment Status
 
 - Local infrastructure: configured, not started.
-- Application services: not deployed.
-- Kubernetes: base namespace and network policy only.
+- Application services: `api-gateway` and `auth-service` are implemented and container definitions are configured; images not built in this session yet.
+- Kubernetes: base namespace, network policy, gateway deployment/service, and auth deployment/service manifests exist.
 - Terraform: dev provider boundary only; no cloud resources declared or applied.
 - GCP/GKE: not provisioned.
 
@@ -89,10 +92,11 @@ Local Docker Compose services:
 - Loki `grafana/loki:3.3.2` on `3100`.
 - Promtail `grafana/promtail:3.3.2`.
 - Jaeger `jaegertracing/all-in-one:1.62.0` on `16686`, `4317`, and `4318`.
+- Auth service built from `services/auth-service/Dockerfile` on `8081`.
+- API gateway built from `services/api-gateway/Dockerfile` on `8080`.
+- Kafka topic initialization creates `user-registered`, `user-login`, `auth-failed`, and `token-refreshed`.
 
 ## APIs Implemented
-
-No customer or service APIs are implemented yet.
 
 Shared API/error foundation:
 
@@ -100,13 +104,31 @@ Shared API/error foundation:
 - `GlobalExceptionHandler` returning RFC 7807 `ProblemDetail` responses.
 - `JwtPrincipal` shared authenticated principal representation.
 
+Auth service:
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/auth/me`
+
+Gateway:
+
+- Routes `/api/v1/auth/**` to `auth-service`.
+- Publicly permits register, login, and refresh.
+- Requires JWT for other routed requests.
+
 ## Kafka Topics
 
-No Kafka topics are implemented yet.
+Implemented Kafka topics:
+
+- `user-registered`
+- `user-login`
+- `auth-failed`
+- `token-refreshed`
 
 Planned topic groups:
 
-- Identity lifecycle events.
 - Customer lifecycle events.
 - Account lifecycle events.
 - Transaction command and state events.
@@ -118,11 +140,14 @@ Planned topic groups:
 
 ## Database Schemas
 
-No database schemas are implemented yet.
+Implemented database schemas:
+
+- `auth_users`
+- `auth_user_roles`
+- `auth_refresh_tokens`
 
 Planned ownership:
 
-- `auth-service`: credentials, refresh token families, login attempts.
 - `user-service`: customer profile, KYC status, preferences.
 - `account-service`: accounts, balances, holds, account lifecycle.
 - `transaction-service`: transaction commands, idempotency keys, saga state, outbox.
@@ -136,11 +161,11 @@ Planned ownership:
 
 ## Next Steps
 
-1. Verify Gradle build for `services/shared/spring-common`.
-2. Verify frontend TypeScript build after dependency installation.
-3. Start Docker Compose stack when the user is ready to pull images.
-4. Implement `api-gateway` as the first deployable Spring service.
-5. Implement `auth-service` contracts before user or banking workflows.
+1. Build service jars with `gradle :services:api-gateway:bootJar :services:auth-service:bootJar`.
+2. Start Docker Compose stack when the user is ready to pull/build images.
+3. Implement Helm charts for gateway and auth service.
+4. Implement `user-service` contracts after auth identity headers stabilize.
+5. Add auth transactional outbox for guaranteed Kafka event publication.
 
 ## Validation Completed
 
@@ -148,3 +173,11 @@ Planned ownership:
 - `git diff --check` passed.
 - `scripts/engineering-watchdog.sh` passed `bash -n`.
 - `docker compose -f platform/docker/docker-compose.yml --env-file .env.example config --quiet` passed.
+- `gradle :services:shared:spring-common:test :services:api-gateway:compileJava :services:auth-service:compileJava` passed.
+- `gradle :services:api-gateway:test` passed.
+- `gradle :services:auth-service:test` passed with PostgreSQL and Redis Testcontainers.
+- `gradle test :services:api-gateway:bootJar :services:auth-service:bootJar` passed.
+- `terraform fmt -check -recursive platform/terraform` passed.
+- `docker compose -f platform/docker/docker-compose.yml --env-file .env.example config --quiet` passed after adding app services.
+- Kubernetes manifests passed YAML parsing via Ruby `YAML.load_stream`.
+- `kubectl apply --dry-run=client --validate=false -f platform/kubernetes/base` could not complete because no Kubernetes API server is reachable.

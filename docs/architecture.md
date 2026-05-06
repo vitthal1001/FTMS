@@ -57,3 +57,9 @@ Services own their storage. Cross-service reads must use published APIs or proje
 - Circuit breakers and bounded retries for downstream calls.
 - Correlation IDs and OpenTelemetry trace propagation across all boundaries.
 
+## Implemented Authentication Foundation
+
+- `api-gateway` is implemented as a Spring Cloud Gateway WebFlux service with Redis-backed rate limiting, JWT resource-server validation, correlation ID propagation, request logging, and circuit-breaker fallback for auth routes.
+- `auth-service` is implemented as a Spring MVC/JPA service with BCrypt password hashing, PostgreSQL persistence, Redis token-family session markers, JWT access-token issuance, refresh-token rotation, replay protection, account lockout, and Kafka auth events.
+- Secrets are runtime configuration only. `JWT_SECRET` and database passwords are not hardcoded in service code.
+

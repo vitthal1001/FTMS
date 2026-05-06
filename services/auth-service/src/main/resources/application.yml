@@ -1,0 +1,68 @@
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: ${AUTH_DB_URL:jdbc:postgresql://localhost:5432/neobankx_platform}
+    username: ${AUTH_DB_USERNAME:neobankx}
+    password: ${AUTH_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${AUTH_DB_POOL_MAX:10}
+      minimum-idle: ${AUTH_DB_POOL_MIN_IDLE:2}
+      connection-timeout: 3000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+server:
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+neobankx:
+  auth:
+    jwt:
+      issuer: ${JWT_ISSUER:neobankx-auth}
+      secret: ${JWT_SECRET}
+      access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:15m}
+    refresh:
+      token-ttl: ${REFRESH_TOKEN_TTL:30d}
+    lockout:
+      max-failed-attempts: ${AUTH_LOCKOUT_MAX_ATTEMPTS:5}
+      duration: ${AUTH_LOCKOUT_DURATION:15m}
+
+logging:
+  pattern:
+    level: "%5p correlationId=%X{correlationId:-}"
+

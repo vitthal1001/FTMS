@@ -1,0 +1,11 @@
+neobankx:
+  security:
+    jwt:
+      issuer: neobankx-auth
+      secret: test-jwt-secret-must-be-long-enough-32
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+

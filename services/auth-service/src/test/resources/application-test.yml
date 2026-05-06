@@ -1,0 +1,19 @@
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+neobankx:
+  auth:
+    jwt:
+      issuer: neobankx-auth
+      secret: test-jwt-secret-must-be-long-enough-32
+      access-token-ttl: 15m
+    refresh:
+      token-ttl: 30d
+    lockout:
+      max-failed-attempts: 5
+      duration: 15m
+

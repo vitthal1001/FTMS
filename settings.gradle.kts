@@ -15,4 +15,5 @@ dependencyResolutionManagement {
 rootProject.name = "neobankx"
 
 include("services:shared:spring-common")
-
+include("services:api-gateway")
+include("services:auth-service")
