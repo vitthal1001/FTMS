@@ -5,7 +5,7 @@
 | api-gateway | Edge security, routing, JWT validation, rate limiting | Redis for rate limiting | Routes auth APIs |
 | auth-service | Identity, credentials, tokens, lockout, refresh rotation | PostgreSQL + Redis | Publishes auth events |
 | user-service | Customer profile and KYC | PostgreSQL | Publishes customer events |
-| account-service | Accounts and balances | PostgreSQL | Publishes account events |
+| account-service | Accounts, immutable ledger, balance snapshots, idempotent transfers | PostgreSQL | Publishes account and balance events |
 | transaction-service | Transaction orchestration | PostgreSQL | Publishes transaction events |
 | payment-service | External payment rails | PostgreSQL | Publishes payment events |
 | notification-service | Customer messaging | MongoDB | Consumes domain events |

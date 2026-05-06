@@ -20,7 +20,7 @@ Architecture baseline:
 
 ## Services Completed
 
-No production service is fully implemented yet.
+Production foundations are implemented for the gateway, authentication, and account domains. They are not yet deployed to Kubernetes or GCP.
 
 Foundation completed:
 
@@ -33,6 +33,7 @@ Implemented services:
 
 - `api-gateway`: Spring Cloud Gateway WebFlux service with auth routing, Redis rate limiting, JWT validation, correlation ID propagation, request logging, circuit-breaker fallback, actuator, Prometheus metrics, OpenAPI docs, Dockerfile, and Kubernetes base manifest.
 - `auth-service`: Spring MVC/JPA service with registration, login, refresh-token rotation, logout, `/me`, BCrypt password hashing, PostgreSQL persistence, Redis token-family session markers, Kafka auth events, account lockout, validation, centralized exception handling, actuator, Prometheus metrics, OpenAPI docs, Dockerfile, Flyway migration, and Kubernetes base manifest.
+- `account-service`: Spring MVC/JPA service with account creation/retrieval/status APIs, immutable ledger entries, balance snapshots, idempotency records, replay-safe transfers, JWT/RBAC enforcement, Kafka account events, validation, centralized exception handling, actuator, Prometheus metrics, OpenAPI docs, Dockerfile, Flyway migration, Testcontainers tests, and Kubernetes base manifest.
 
 ## Current Sprint
 
@@ -60,6 +61,8 @@ Completed in this sprint:
 - Define platform-wide Kafka schema registry and DLQ standards.
 - Add CI pipeline once build commands are verified locally.
 - Add transactional outbox for auth event delivery hardening.
+- Add transactional outbox for account event delivery hardening.
+- Implement transaction-service saga orchestration on top of account transfer contracts.
 
 ## Known Issues
 
@@ -68,13 +71,14 @@ Completed in this sprint:
 - Frontend lockfile generation was attempted but npm registry resolution hung without output and was stopped.
 - Docker Compose images have not been pulled or started in this session.
 - `auth-service` Kafka publishing is asynchronous and logs publish failures; transactional outbox is pending.
+- `account-service` Kafka publishing is after-commit but not transactional-outbox-backed yet.
 - Kubernetes YAML syntax validates, but `kubectl apply --dry-run=client` could not complete because no Kubernetes API server is reachable at the current context.
 
 ## Deployment Status
 
 - Local infrastructure: configured, not started.
-- Application services: `api-gateway` and `auth-service` are implemented and container definitions are configured; images not built in this session yet.
-- Kubernetes: base namespace, network policy, gateway deployment/service, and auth deployment/service manifests exist.
+- Application services: `api-gateway`, `auth-service`, and `account-service` are implemented and container definitions are configured; images not built in this session yet.
+- Kubernetes: base namespace, network policy, gateway deployment/service, auth deployment/service, and account deployment/service manifests exist.
 - Terraform: dev provider boundary only; no cloud resources declared or applied.
 - GCP/GKE: not provisioned.
 
@@ -94,7 +98,8 @@ Local Docker Compose services:
 - Jaeger `jaegertracing/all-in-one:1.62.0` on `16686`, `4317`, and `4318`.
 - Auth service built from `services/auth-service/Dockerfile` on `8081`.
 - API gateway built from `services/api-gateway/Dockerfile` on `8080`.
-- Kafka topic initialization creates `user-registered`, `user-login`, `auth-failed`, and `token-refreshed`.
+- Account service built from `services/account-service/Dockerfile` on `8082`.
+- Kafka topic initialization creates `user-registered`, `user-login`, `auth-failed`, `token-refreshed`, `account-created`, `account-frozen`, `account-activated`, and `balance-updated`.
 
 ## APIs Implemented
 
@@ -115,8 +120,19 @@ Auth service:
 Gateway:
 
 - Routes `/api/v1/auth/**` to `auth-service`.
+- Routes `/api/v1/accounts/**` to `account-service`.
 - Publicly permits register, login, and refresh.
 - Requires JWT for other routed requests.
+
+Account service:
+
+- `POST /api/v1/accounts`
+- `GET /api/v1/accounts/{accountId}`
+- `POST /api/v1/accounts/{accountId}/freeze`
+- `POST /api/v1/accounts/{accountId}/activate`
+- `GET /api/v1/accounts/{accountId}/balances`
+- `GET /api/v1/accounts/{accountId}/ledger`
+- `POST /api/v1/accounts/transfers`
 
 ## Kafka Topics
 
@@ -126,6 +142,10 @@ Implemented Kafka topics:
 - `user-login`
 - `auth-failed`
 - `token-refreshed`
+- `account-created`
+- `account-frozen`
+- `account-activated`
+- `balance-updated`
 
 Planned topic groups:
 
@@ -145,11 +165,14 @@ Implemented database schemas:
 - `auth_users`
 - `auth_user_roles`
 - `auth_refresh_tokens`
+- `accounts`
+- `ledger_entries`
+- `account_balance_snapshots`
+- `idempotency_records`
 
 Planned ownership:
 
 - `user-service`: customer profile, KYC status, preferences.
-- `account-service`: accounts, balances, holds, account lifecycle.
 - `transaction-service`: transaction commands, idempotency keys, saga state, outbox.
 - `payment-service`: provider mappings, payment attempts, reconciliation state.
 - `audit-service`: immutable audit event store.
@@ -161,11 +184,11 @@ Planned ownership:
 
 ## Next Steps
 
-1. Build service jars with `gradle :services:api-gateway:bootJar :services:auth-service:bootJar`.
+1. Build service jars with `gradle :services:api-gateway:bootJar :services:auth-service:bootJar :services:account-service:bootJar`.
 2. Start Docker Compose stack when the user is ready to pull/build images.
-3. Implement Helm charts for gateway and auth service.
-4. Implement `user-service` contracts after auth identity headers stabilize.
-5. Add auth transactional outbox for guaranteed Kafka event publication.
+3. Implement Helm charts for gateway, auth service, and account service.
+4. Implement transaction-service saga orchestration and account transfer integration contracts.
+5. Add transactional outbox for guaranteed auth/account Kafka event publication.
 
 ## Validation Completed
 
@@ -177,6 +200,11 @@ Planned ownership:
 - `gradle :services:api-gateway:test` passed.
 - `gradle :services:auth-service:test` passed with PostgreSQL and Redis Testcontainers.
 - `gradle test :services:api-gateway:bootJar :services:auth-service:bootJar` passed.
+- `gradle :services:account-service:test` passed with PostgreSQL Testcontainers.
+- `gradle test :services:api-gateway:bootJar :services:auth-service:bootJar :services:account-service:bootJar` passed.
+- `docker compose -f platform/docker/docker-compose.yml --env-file .env.example config --quiet` passed after adding account service.
+- `terraform fmt -check -recursive platform/terraform` passed.
+- Kubernetes base manifests, including `account-service.yaml`, passed YAML parsing via Ruby `YAML.load_stream`.
 - `terraform fmt -check -recursive platform/terraform` passed.
 - `docker compose -f platform/docker/docker-compose.yml --env-file .env.example config --quiet` passed after adding app services.
 - Kubernetes manifests passed YAML parsing via Ruby `YAML.load_stream`.

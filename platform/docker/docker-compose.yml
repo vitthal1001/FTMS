@@ -96,7 +96,7 @@ services:
       - -c
       - |
         set -euo pipefail
-        for topic in user-registered user-login auth-failed token-refreshed; do
+        for topic in user-registered user-login auth-failed token-refreshed account-created account-frozen account-activated balance-updated; do
           kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic" --partitions 3 --replication-factor 1
         done
 
@@ -143,9 +143,12 @@ services:
         condition: service_healthy
       auth-service:
         condition: service_healthy
+      account-service:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8080
       AUTH_SERVICE_URI: http://auth-service:8081
+      ACCOUNT_SERVICE_URI: http://account-service:8082
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_ISSUER: ${JWT_ISSUER}
@@ -155,6 +158,37 @@ services:
       - "8080:8080"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  account-service:
+    build:
+      context: ../..
+      dockerfile: services/account-service/Dockerfile
+    container_name: neobankx-account-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-topic-init:
+        condition: service_completed_successfully
+    environment:
+      SERVER_PORT: 8082
+      ACCOUNT_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      ACCOUNT_DB_USERNAME: ${ACCOUNT_DB_USERNAME}
+      ACCOUNT_DB_PASSWORD: ${ACCOUNT_DB_PASSWORD}
+      ACCOUNT_DEFAULT_CURRENCY: ${ACCOUNT_DEFAULT_CURRENCY}
+      ACCOUNT_SYSTEM_OPENING_ACCOUNT_ID: ${ACCOUNT_SYSTEM_OPENING_ACCOUNT_ID}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_SECRET: ${JWT_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8082/actuator/health/readiness"]
       interval: 15s
       timeout: 5s
       retries: 10

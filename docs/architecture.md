@@ -63,3 +63,10 @@ Services own their storage. Cross-service reads must use published APIs or proje
 - `auth-service` is implemented as a Spring MVC/JPA service with BCrypt password hashing, PostgreSQL persistence, Redis token-family session markers, JWT access-token issuance, refresh-token rotation, replay protection, account lockout, and Kafka auth events.
 - Secrets are runtime configuration only. `JWT_SECRET` and database passwords are not hardcoded in service code.
 
+## Implemented Account Foundation
+
+- `account-service` owns account lifecycle, immutable ledger postings, balance snapshots, and idempotency records in PostgreSQL.
+- Account creation with an opening balance posts a balanced ledger group against the system opening account.
+- Transfers update source and target balance snapshots atomically with immutable ledger entries in one transaction.
+- Account and balance rows use optimistic versioning; ledger entries are protected by database triggers that reject updates and deletes.
+- `api-gateway` routes `/api/v1/accounts/**` to `account-service` and requires JWT authentication.

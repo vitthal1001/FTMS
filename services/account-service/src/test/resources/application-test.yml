@@ -1,0 +1,15 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  kafka:
+    bootstrap-servers: localhost:9092
+
+neobankx:
+  account:
+    default-currency: USD
+    system-opening-account-id: 00000000-0000-0000-0000-000000000001
+    jwt:
+      issuer: neobankx-auth
+      secret: test-jwt-secret-must-be-long-enough-32
+

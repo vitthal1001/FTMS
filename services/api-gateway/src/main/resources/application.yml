@@ -40,6 +40,7 @@ neobankx:
       secret: ${JWT_SECRET}
   routes:
     auth-service-uri: ${AUTH_SERVICE_URI:http://localhost:8081}
+    account-service-uri: ${ACCOUNT_SERVICE_URI:http://localhost:8082}
   rate-limit:
     replenish-rate: ${GATEWAY_RATE_REPLENISH:20}
     burst-capacity: ${GATEWAY_RATE_BURST:40}
@@ -61,4 +62,3 @@ resilience4j:
 logging:
   pattern:
     level: "%5p correlationId=%X{correlationId:-}"
-

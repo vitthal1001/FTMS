@@ -19,4 +19,14 @@ public class FallbackController {
         problem.setTitle("AUTH_SERVICE_UNAVAILABLE");
         return Mono.just(problem);
     }
+
+    @RequestMapping(path = "/account-service", method = {RequestMethod.GET, RequestMethod.POST})
+    Mono<ProblemDetail> accountServiceFallback() {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Account service is temporarily unavailable"
+        );
+        problem.setTitle("ACCOUNT_SERVICE_UNAVAILABLE");
+        return Mono.just(problem);
+    }
 }

@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: account-service
+  datasource:
+    url: ${ACCOUNT_DB_URL:jdbc:postgresql://localhost:5432/neobankx_platform}
+    username: ${ACCOUNT_DB_USERNAME:neobankx}
+    password: ${ACCOUNT_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${ACCOUNT_DB_POOL_MAX:10}
+      minimum-idle: ${ACCOUNT_DB_POOL_MIN_IDLE:2}
+      connection-timeout: 3000
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+server:
+  port: ${SERVER_PORT:8082}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+neobankx:
+  account:
+    default-currency: ${ACCOUNT_DEFAULT_CURRENCY:USD}
+    system-opening-account-id: ${ACCOUNT_SYSTEM_OPENING_ACCOUNT_ID:00000000-0000-0000-0000-000000000001}
+    jwt:
+      issuer: ${JWT_ISSUER:neobankx-auth}
+      secret: ${JWT_SECRET}
+
+logging:
+  pattern:
+    level: "%5p correlationId=%X{correlationId:-}"
+

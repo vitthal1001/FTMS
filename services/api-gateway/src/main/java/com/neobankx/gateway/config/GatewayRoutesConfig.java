@@ -16,7 +16,8 @@ public class GatewayRoutesConfig {
             RouteLocatorBuilder routes,
             RedisRateLimiter redisRateLimiter,
             KeyResolver clientKeyResolver,
-            @Value("${neobankx.routes.auth-service-uri:http://localhost:8081}") String authServiceUri
+            @Value("${neobankx.routes.auth-service-uri:http://localhost:8081}") String authServiceUri,
+            @Value("${neobankx.routes.account-service-uri:http://localhost:8082}") String accountServiceUri
     ) {
         return routes.routes()
                 .route("auth-service", route -> route
@@ -30,6 +31,17 @@ public class GatewayRoutesConfig {
                                         .setName("auth-service")
                                         .setFallbackUri("forward:/fallback/auth-service")))
                         .uri(authServiceUri))
+                .route("account-service", route -> route
+                        .path("/api/v1/accounts/**")
+                        .filters(filters -> filters
+                                .requestRateLimiter(config -> {
+                                    config.setRateLimiter(redisRateLimiter);
+                                    config.setKeyResolver(clientKeyResolver);
+                                })
+                                .circuitBreaker(config -> config
+                                        .setName("account-service")
+                                        .setFallbackUri("forward:/fallback/account-service")))
+                        .uri(accountServiceUri))
                 .build();
     }
 
@@ -64,4 +76,3 @@ public class GatewayRoutesConfig {
         return fallback;
     }
 }
-

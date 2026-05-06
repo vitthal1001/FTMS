@@ -4,10 +4,10 @@
 
 Local dependencies run through Docker Compose. Application services will be run directly during early development and containerized as each service reaches deployable status.
 
-`api-gateway` and `auth-service` now have Dockerfiles and Compose service definitions. Build the service jars before starting app containers:
+`api-gateway`, `auth-service`, and `account-service` now have Dockerfiles and Compose service definitions. Build the service jars before starting app containers:
 
 ```bash
-gradle :services:api-gateway:bootJar :services:auth-service:bootJar
+gradle :services:api-gateway:bootJar :services:auth-service:bootJar :services:account-service:bootJar
 docker compose -f platform/docker/docker-compose.yml --env-file .env.example up -d
 ```
 
@@ -15,12 +15,13 @@ For real environments, replace `JWT_SECRET` and database credentials with secret
 
 ## Kubernetes
 
-Kubernetes manifests start with namespace and network policy guardrails. `api-gateway` and `auth-service` now include base deployment and service manifests with probe, resource, and secret-reference contracts.
+Kubernetes manifests start with namespace and network policy guardrails. `api-gateway`, `auth-service`, and `account-service` now include base deployment and service manifests with probe, resource, and secret-reference contracts.
 
 The manifests intentionally reference Kubernetes Secrets rather than hardcoded credentials:
 
 - `api-gateway-secrets`
 - `auth-service-secrets`
+- `account-service-secrets`
 
 ## Terraform
 
