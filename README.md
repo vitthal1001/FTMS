@@ -1,47 +1,133 @@
-# NeoBankX
+# 💳 Financial Transaction Management System (FTMS)
 
-NeoBankX is a production-oriented cloud-native digital banking platform designed as a modular fintech monorepo. The platform targets independently deployable services, event-driven workflows, strong security boundaries, and first-class observability from the first commit.
+[![Java](https://img.shields.io/badge/Java-17-ED8B00?style=for-the-badge&logo=java&logoColor=white)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-3.6-231F20?style=for-the-badge&logo=apache-kafka&logoColor=white)](https://kafka.apache.org/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Jenkins](https://img.shields.io/badge/Jenkins-CI%2FCD-D24939?style=for-the-badge&logo=jenkins&logoColor=white)](https://www.jenkins.io/)
 
-## Architecture
+FTMS is a distributed, event-driven financial transaction processing system built using **Java 17**, **Spring Boot**, and **Apache Kafka**. It simulates core banking/fintech backend workflows including account credit/debit, transaction settlement, and auditing with strong consistency guarantees.
 
-- Frontend: React, TypeScript, Tailwind, Redux Toolkit.
-- Backend: Java 21, Spring Boot 3.5.x, Spring Security, JWT, Spring Cloud patterns.
-- Services: API gateway, auth, user, account, transaction, payment, notification, fraud, audit, and analytics.
-- Data: PostgreSQL for transactional consistency, Redis for low-latency state, MongoDB for document-oriented read and audit workloads.
-- Messaging: Kafka with outbox, dead letter topics, idempotent consumers, and saga coordination.
-- Platform: Docker Compose for local infrastructure, Kubernetes and Helm for deployable services, Terraform for GCP/GKE infrastructure.
-- Observability: Prometheus, Grafana, Loki, Jaeger, Spring Actuator, structured logs, and propagated correlation IDs.
+## 🏛️ System Architecture
 
-## Repository Layout
+The system is split into 4 independently deployable microservices coordinated via Kafka events:
+
+```mermaid
+graph TD
+    Client[Client / Postman] -->|REST API| Gateway[API Gateway / Saga Orchestrator]
+    
+    subgraph Event Bus (Kafka)
+        direction LR
+        DebitTopic[transaction.debit.request]
+        CreditTopic[transaction.credit.request]
+        SettlementTopic[transaction.settlement.request]
+        AuditTopic[transaction.audit.log]
+        DLQTopic[transaction.error.dlq]
+    end
+    
+    Gateway -->|Publish Event| DebitTopic
+    Gateway -->|Publish Event| CreditTopic
+    Gateway -->|Publish Event| SettlementTopic
+    
+    DebitTopic --> AccountService[Account Service]
+    CreditTopic --> AccountService
+    
+    SettlementTopic --> SettlementService[Settlement Service]
+    
+    AccountService -->|Audit Log| AuditTopic
+    SettlementService -->|Audit Log| AuditTopic
+    
+    AuditTopic --> AuditService[Audit & Reporting Service]
+    
+    %% Error Flow
+    AccountService -.->|Failures| DLQTopic
+    SettlementService -.->|Failures| DLQTopic
+    DLQTopic -.-> Gateway
+```
+
+---
+
+## ⚡ Key Architectural Patterns
+
+### 1. Saga Orchestration Pattern
+To process transactions across multiple microservices without distributed two-phase commit (2PC) locks, FTMS implements a **Saga Orchestrator** in the gateway layer:
+- **Happy Path**: The Orchestrator publishes events to `debit.request`. Once successful, it triggers `credit.request`, followed by `settlement.request`.
+- **Compensating Path (Rollback)**: If a step fails (e.g., target account is suspended during credit), the orchestrator catches the event and publishes compensating events to refund the debited amount, maintaining eventual consistency.
+
+### 2. Idempotency Layer
+To prevent duplicate processing from network retries or Kafka "at-least-once" delivery:
+- Every transaction request must include a unique `X-Transaction-Id` header (UUID v4).
+- Services check a `processed_transactions` table before running logic. If the ID exists, the duplicate event is ignored.
+
+### 3. Fault Isolation & Dead Letter Queues (DLQ)
+- Transient database errors trigger up to 3 retries with exponential backoff.
+- Validation failures or unparseable payloads (Poison Pills) are immediately routed to the `transaction.error.dlq` topic for offline analysis, preventing partition blockages.
+
+---
+
+## 📁 Project Structure
 
 ```text
-frontend/                 React banking console
-services/                 Spring Boot services and shared backend libraries
-platform/docker/          Local infrastructure composition
-platform/kubernetes/      Kubernetes base manifests
-platform/helm/            Helm chart foundations
-platform/terraform/       GCP/GKE infrastructure foundations
-platform/monitoring/      Prometheus, Grafana, Loki, and logging config
-docs/                     Architecture, API, security, and operations docs
-brain/                    Persistent engineering memory and decisions
-scripts/                  Engineering automation and watchdog tooling
+ftms-parent/
+├── saga-orchestrator/       # Saga coordinator & REST Gateway
+├── account-service/         # User accounts, balances, credit/debit
+├── settlement-service/      # Netting, ledger postings, clearing
+├── audit-service/           # Transaction logging & report generation
+├── docker-compose.yml       # Kafka, Zookeeper, MySQL, Redis, and services
+└── README.md
 ```
 
-## Local Foundation
+---
 
-Start the local platform dependencies from the repository root:
+## 💾 Database Schema (Core Tables)
 
-```bash
-docker compose -f platform/docker/docker-compose.yml --env-file .env.example up -d
-```
+### Account Service DB
+*   **`accounts`**: `id` (PK), `account_number` (Unique), `balance`, `status` (ACTIVE, FROZEN), `version` (Optimistic Locking).
+*   **`processed_requests`**: `idempotency_key` (PK), `status` (IN_PROGRESS, COMPLETED), `response_payload`, `created_at`.
 
-The local stack exposes PostgreSQL, Redis, MongoDB, Kafka, Kafka UI, Prometheus, Grafana, Loki, and Jaeger. Services are not all implemented in phase 1; directories exist to preserve deployability boundaries and prevent early coupling.
+### Settlement Service DB
+*   **`settlements`**: `id` (PK), `transaction_id` (Unique), `amount`, `status` (PENDING, SETTLED, FAILED), `settled_at`.
 
-## Engineering Contract
+---
 
-Every production service must include health checks, metrics, structured logging, OpenAPI documentation, validation, centralized exception handling, unit tests, integration tests, Docker packaging, and Kubernetes deployment metadata before it is considered complete. See [PROJECT_RULES.md](/Users/parthchoudhari/FTMS/PROJECT_RULES.md) and [AGENTS.md](/Users/parthchoudhari/FTMS/AGENTS.md).
+## 🚀 Getting Started
 
-## Current Status
+### Prerequisites
+- Docker & Docker Compose
+- JDK 17
+- Maven 3.8+
 
-Phase 1 foundation is initialized: monorepo structure, documentation, Docker Compose infrastructure, monitoring configuration, shared Spring Boot library, frontend bootstrap, and persistent `/brain` memory system.
+### Running the System
 
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/vitthal1001/FTMS.git
+    cd FTMS
+    ```
+2.  Start the infrastructure (Kafka, Zookeeper, MySQL):
+    ```bash
+    docker-compose up -d --build
+    ```
+3.  Build the services:
+    ```bash
+    mvn clean install
+    ```
+4.  Run the individual Spring Boot applications or start them containerized via docker-compose.
+
+---
+
+## 🔌 Core API Endpoints
+
+### Saga Orchestrator Gateway (`localhost:8080`)
+
+| Endpoint | Method | Headers | Payload | Description |
+|---|---|---|---|---|
+| `/api/v1/transactions` | `POST` | `X-Transaction-Id: <UUID>` | `{ "sourceAccount": "123", "targetAccount": "456", "amount": 1500.00 }` | Initiates a Saga-coordinated transfer. |
+| `/api/v1/transactions/{id}` | `GET` | None | None | Checks current Saga execution state. |
+
+---
+
+## 🛠️ Verification & Testing
+- **Unit Tests**: Built using JUnit 5 and Mockito, testing isolation behaviors.
+- **Integration Tests**: Uses `Testcontainers` to spin up lightweight Kafka and MySQL instances during build verification.
